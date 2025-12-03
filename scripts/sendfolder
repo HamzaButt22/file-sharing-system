@@ -1,0 +1,38 @@
+#!/bin/bash
+shared_folder="/shared_volume"
+logs_folder="/logs_volume"
+sent_log="$logs_folder/sent.log"
+
+folder="$1"
+[[ -z "$folder" ]] && { echo "No folder specified"; exit 1; }
+
+if [[ ! -d "$folder" ]]; then
+    echo "Folder does not exist: $folder"
+    exit 1
+fi
+
+name=$(basename "$folder")
+dest="$shared_folder/$name"
+
+if [[ -d "$dest" ]]; then
+    echo "Folder '$name' already exists in shared volume."
+    echo "1) Overwrite"
+    echo "2) Skip"
+    echo "3) Save with new name"
+    read -p "Choose: " opt
+    case "$opt" in
+        1) rm -rf "$dest"; cp -r "$folder" "$dest"; echo "Overwritten." ;;
+        2) echo "Skipped sending folder."; exit 0 ;;
+        3) read -p "Enter new folder name: " newname
+           cp -r "$folder" "$shared_folder/$newname"
+           name="$newname"
+           echo "Saved as $newname"
+           ;;
+        *) echo "Invalid option. Skipping."; exit 1 ;;
+    esac
+else
+    cp -r "$folder" "$dest"
+    echo "Folder sent to Docker volume: $name"
+fi
+
+echo "$name" >> "$sent_log"

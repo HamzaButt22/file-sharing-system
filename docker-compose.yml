@@ -1,0 +1,15 @@
+services:
+  file-sharing-app:
+    build: .
+    volumes:
+      - file_share_data:/shared_volume
+      - incoming_data:/incoming_volume  
+      - logs_data:/logs_volume
+    stdin_open: true
+    tty: true
+    container_name: file-sharing-container
+
+volumes:
+  file_share_data:
+  incoming_data:
+  logs_data:

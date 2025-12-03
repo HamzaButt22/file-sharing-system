@@ -1,0 +1,17 @@
+# Temporary and log files
+*.log
+tmp/
+temp/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Debug files (we don't want Dockerfile.debug in repository)
+Dockerfile.debug

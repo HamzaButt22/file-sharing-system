@@ -1,0 +1,32 @@
+#!/bin/bash
+shared_folder="/shared_volume"
+incoming_folder="/incoming_volume"
+
+files=( "$shared_folder"/* )
+files=( "${files[@]##*/}" )
+
+filelist=()
+for f in "${files[@]}"; do
+    [[ -f "$shared_folder/$f" ]] && filelist+=( "$f" )
+done
+
+if [[ ${#filelist[@]} -eq 0 ]]; then
+    echo "No files available to receive from Docker volume."
+    exit 0
+fi
+
+i=1
+for f in "${filelist[@]}"; do
+    echo "$i) $f"
+    ((i++))
+done
+
+read -p "Enter number: " n
+if ! [[ "$n" =~ ^[0-9]+$ ]] || (( n < 1 || n > ${#filelist[@]} )); then
+    echo "Invalid selection!"
+    exit 1
+fi
+
+chosen="${filelist[$((n-1))]}"
+cp "$shared_folder/$chosen" "$incoming_folder/"
+echo "Received file from Docker volume: $chosen"

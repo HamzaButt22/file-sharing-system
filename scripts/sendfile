@@ -1,0 +1,38 @@
+#!/bin/bash
+shared_folder="/shared_volume"
+logs_folder="/logs_volume"
+sent_log="$logs_folder/sent.log"
+
+file="$1"
+[[ -z "$file" ]] && { echo "No file specified"; exit 1; }
+
+if [[ ! -f "$file" ]]; then
+    echo "File does not exist: $file"
+    exit 1
+fi
+
+name=$(basename "$file")
+dest="$shared_folder/$name"
+
+if [[ -f "$dest" ]]; then
+    echo "File '$name' already exists in shared volume."
+    echo "1) Overwrite"
+    echo "2) Skip"
+    echo "3) Save with new name"
+    read -p "Choose: " opt
+    case "$opt" in
+        1) cp "$file" "$dest"; echo "Overwritten." ;;
+        2) echo "Skipped sending file."; exit 0 ;;
+        3) read -p "Enter new file name: " newname
+           cp "$file" "$shared_folder/$newname"
+           name="$newname"
+           echo "Saved as $newname"
+           ;;
+        *) echo "Invalid option. Skipping."; exit 1 ;;
+    esac
+else
+    cp "$file" "$dest"
+    echo "File sent to Docker volume: $name"
+fi
+
+echo "$name" >> "$sent_log"

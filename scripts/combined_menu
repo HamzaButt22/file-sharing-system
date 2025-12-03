@@ -1,0 +1,165 @@
+#!/bin/bash
+
+# ===============================
+# DOCKER VOLUME PATHS
+# ===============================
+shared_folder="/shared_volume"
+incoming_folder="/incoming_volume"
+logs_folder="/logs_volume"
+sent_log="$logs_folder/sent.log"
+
+# Create directories if they don't exist
+mkdir -p "$shared_folder" "$incoming_folder" "$logs_folder"
+touch "$sent_log"
+
+# ===============================
+# UTIL: Expand ~ to $HOME
+# ===============================
+expand_path() {
+    local p="$1"
+    p="${p/#\~/$HOME}"
+    echo "$p"
+}
+
+# ===============================
+# Log sent files/folders
+# ===============================
+log_sent() {
+    echo "$1" >> "$sent_log"
+}
+
+# ===============================
+# Show sent log
+# ===============================
+show_log() {
+    if [[ ! -s "$sent_log" ]]; then
+        echo "You have not sent any files/folders yet"
+        return
+    fi
+    nl -ba "$sent_log"
+}
+
+# ===============================
+# Delete sent files/folders
+# ===============================
+delete_sent() {
+    if [[ ! -s "$sent_log" ]]; then
+        echo "No sent items to delete."
+        return
+    fi
+
+    echo "Your sent files/folders:"
+    mapfile -t items < "$sent_log"
+    i=1
+    for f in "${items[@]}"; do
+        echo "$i) $f"
+        ((i++))
+    done
+
+    read -p "Enter number to delete (or Enter to cancel): " choice
+    [[ -z "$choice" ]] && echo "Cancelled." && return
+
+    index=$((choice-1))
+    if [ $index -lt 0 ] || [ $index -ge ${#items[@]} ]; then
+        echo "Invalid choice."
+        return
+    fi
+
+    target="${items[$index]}"
+    target_path="$shared_folder/$target"
+
+    if [[ -e "$target_path" ]]; then
+        rm -rf "$target_path"
+        echo "Deleted: $target_path"
+    else
+        echo "File/Folder not found in shared folder, removing from log only"
+    fi
+
+    unset 'items[index]'
+    printf "%s\n" "${items[@]}" > "$sent_log"
+}
+
+# ===============================
+# Safe call helper scripts
+# ===============================
+run_script() {
+    local script="$1"
+    shift
+    if [ -x "./$script" ]; then
+        "./$script" "$@"
+    else
+        echo "Error: Script '$script' not found or not executable!"
+    fi
+}
+
+# ===============================
+# Show Docker Volume Info
+# ===============================
+show_docker_info() {
+    echo
+    echo "=== Docker Volume Information ==="
+    echo "Shared Volume: $shared_folder"
+    echo "Incoming Volume: $incoming_folder"
+    echo "Logs Volume: $logs_folder"
+    echo "Container Name: file-sharing-container"
+    echo "================================"
+}
+
+# ===============================
+# MAIN MENU LOOP
+# ===============================
+while true; do
+    echo
+    echo "===== DOCKER FILE SHARING SYSTEM ====="
+    show_docker_info
+    echo "1) Send a File"
+    echo "2) Send a Folder"
+    echo "3) Receive a File"
+    echo "4) Receive a Folder"
+    echo "5) Delete Sent Item"
+    echo "6) View Docker Volumes"
+    echo "7) Exit"
+    echo "===================================="
+    read -p "Choose option: " choice
+
+    [[ -z "$choice" || "$choice" = "7" ]] && echo "Exiting Menu." && break
+
+    case "$choice" in
+        1)
+            read -p "Enter file path to send: " file
+            [[ -z "$file" ]] && echo "Cancelled." && continue
+            file=$(expand_path "$file")
+            run_script "sendfile" "$file"
+            ;;
+        2)
+            read -p "Enter folder path to send: " folder
+            [[ -z "$folder" ]] && echo "Cancelled." && continue
+            folder=$(expand_path "$folder")
+            run_script "sendfolder" "$folder"
+            ;;
+        3)
+            run_script "receivefile"
+            ;;
+        4)
+            run_script "receivefolder"
+            ;;
+        5)
+            delete_sent
+            ;;
+        6)
+            echo
+            echo "=== Current Docker Volume Contents ==="
+            echo "Shared Volume Contents:"
+            ls -la "$shared_folder"
+            echo
+            echo "Incoming Volume Contents:"
+            ls -la "$incoming_folder"
+            echo
+            echo "Logs Volume Contents:"
+            ls -la "$logs_folder"
+            ;;
+        *)
+            echo "Invalid option."
+            ;;
+    esac
+done
